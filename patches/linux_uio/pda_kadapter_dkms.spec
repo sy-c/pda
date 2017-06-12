@@ -53,9 +53,10 @@ fi
 
 %post
 dkms add -m %{module} -v %{version}
-if [ `uname -r | grep -c "BOOT"` -eq 0 ] && [ -e /lib/modules/`uname -r`/build/include ]; then
-	dkms build -m %{module} -v %{version}
-	dkms install -m %{module} -v %{version}
+
+if [ `uname -r | grep -c "BOOT"` -eq 0 ]; then
+	dkms build -m %{module} -v %{version} --all
+	dkms install -m %{module} -v %{version} --all
 elif [ `uname -r | grep -c "BOOT"` -gt 0 ]; then
 	echo -e ""
 	echo -e "Module build for the currently running kernel was skipped since you"
