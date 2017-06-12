@@ -1,6 +1,6 @@
 KDIR    := /lib/modules/$(shell uname -r)/build
 VERSION := $(shell uname -r)-$(shell cat uio_pci_dma.h | grep UIO_PCI_DMA_VERSION | cut -d\" -f2)
-DKMS_VERSION := 11.3.7
+DKMS_VERSION := 1.0.0
 
 all: prepare
 	KDIR=$(KDIR) INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) make -C build/
@@ -42,16 +42,16 @@ rpm_dkms: pack_dkms
 	./configure --version
 	mkdir -p ${HOME}/rpmbuild
 	mkdir -p ${HOME}/rpmbuild/BUILD ${HOME}/rpmbuild/BUILDROOT ${HOME}/rpmbuild/RPMS ${HOME}/rpmbuild/SOURCES ${HOME}/rpmbuild/SPECS ${HOME}/rpmbuild/SRPMS
-	mv pda_kadapter_dkms-${DKMS_VERSION}.tar.gz ${HOME}/rpmbuild/SOURCES
+	mv pda-kadapter-dkms-${DKMS_VERSION}.tar.gz ${HOME}/rpmbuild/SOURCES
 	rpmbuild -ba pda_kadapter_dkms.spec
 
 pack_dkms:
-	rm -rf pda_kadapter_dkms-${DKMS_VERSION}
-	mkdir pda_kadapter_dkms-${DKMS_VERSION}
-	cp Makefile_dkms dkms.conf uio_pci_dma.c uio_pci_dma.h 99-pda.rules pda_kadapter_dkms-${DKMS_VERSION}/
-	tar -cf pda_kadapter_dkms-${DKMS_VERSION}.tar pda_kadapter_dkms-${DKMS_VERSION}
-	gzip pda_kadapter_dkms-${DKMS_VERSION}.tar
-	rm -rf pda_kadapter_dkms-${DKMS_VERSION}
+	rm -rf pda-kadapter-dkms-${DKMS_VERSION}
+	mkdir pda-kadapter-dkms-${DKMS_VERSION}
+	cp Makefile_dkms dkms.conf uio_pci_dma.c uio_pci_dma.h 99-pda.rules pda-kadapter-dkms-${DKMS_VERSION}/
+	tar -cf pda-kadapter-dkms-${DKMS_VERSION}.tar pda-kadapter-dkms-${DKMS_VERSION}
+	gzip pda-kadapter-dkms-${DKMS_VERSION}.tar
+	rm -rf pda-kadapter-dkms-${DKMS_VERSION}
 
 clean:
 	rm -rf test
