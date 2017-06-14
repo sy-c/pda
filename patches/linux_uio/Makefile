@@ -1,6 +1,6 @@
 KDIR    := /lib/modules/$(shell uname -r)/build
 VERSION := $(shell uname -r)-$(shell cat uio_pci_dma.h | grep UIO_PCI_DMA_VERSION | cut -d\" -f2)
-DKMS_VERSION := 1.0.0
+DKMS_VERSION := 1.0.1
 
 all: prepare
 	KDIR=$(KDIR) INSTALL_MOD_PATH=$(INSTALL_MOD_PATH) make -C build/
