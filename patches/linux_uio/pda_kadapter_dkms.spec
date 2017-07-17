@@ -1,5 +1,5 @@
 %define module pda-kadapter-dkms
-%define version 1.0.1
+%define version 1.0.3
 
 Summary: PDA kernel adapter DKMS package
 Name: %{module}
@@ -11,8 +11,6 @@ Group: System Environment/Base
 BuildArch: noarch
 Requires: dkms >= 1.00
 Requires: bash
-# There is no Source# line for dkms.conf since it has been placed
-# into the source tarball of SOURCE0
 Source0: %{module}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root/
 
@@ -32,17 +30,15 @@ fi
 mkdir -p $RPM_BUILD_ROOT/usr/src/%{module}-%{version}/
 tar xvzf $RPM_SOURCE_DIR/%{module}-%{version}.tar.gz --strip-components=1 -C $RPM_BUILD_ROOT/usr/src/%{module}-%{version}/
 
-#cp -rf %{module}-%{version}/* $RPM_BUILD_ROOT/usr/src/%{module}-%{version}
-
 mkdir -p $RPM_BUILD_ROOT/etc/udev/rules.d/
 mv $RPM_BUILD_ROOT/usr/src/%{module}-%{version}/99-pda.rules $RPM_BUILD_ROOT/etc/udev/rules.d/%{module}-%{version}.rules
 
 mv $RPM_BUILD_ROOT/usr/src/%{module}-%{version}/Makefile_dkms $RPM_BUILD_ROOT/usr/src/%{module}-%{version}/Makefile
 
 %clean
-if [ "$RPM_BUILD_ROOT" != "/" ]; then
-	rm -rf $RPM_BUILD_ROOT
-fi
+#if [ "$RPM_BUILD_ROOT" != "/" ]; then
+#	rm -rf $RPM_BUILD_ROOT
+#fi
 
 %files
 %defattr(644,root,root,755)
@@ -55,8 +51,8 @@ fi
 dkms add -m %{module} -v %{version}
 
 if [ `uname -r | grep -c "BOOT"` -eq 0 ]; then
-	dkms build -m %{module} -v %{version} --all
-	dkms install -m %{module} -v %{version} --all
+	dkms build -m %{module} -v %{version}
+	dkms install -m %{module} -v %{version}
 elif [ `uname -r | grep -c "BOOT"` -gt 0 ]; then
 	echo -e ""
 	echo -e "Module build for the currently running kernel was skipped since you"
