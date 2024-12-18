@@ -1,0 +1,18 @@
+pda-kernel-dkms (0.11.0-1) noble; urgency=medium
+
+  * Bugfix: correctly initialize kernel memory
+  * Minor cleanup
+
+ -- Dirk Hutter  <hutter@compeng.uni-frankfurt.de>  Tue, 03 Dec 2024 16:06:03 +0100
+
+pda-kernel-dkms (0.10.0-1) noble; urgency=medium
+
+  * Updates for Kernel 6.8
+
+ -- Dirk Hutter <hutter@compeng.uni-frankfurt.de>  Tue, 01 Oct 2024 14:29:14 +0200
+
+pda-kernel-dkms (0.9.0-1) lunar; urgency=medium
+
+  * Initial package.
+
+ -- Dirk Hutter <hutter@compeng.uni-frankfurt.de>  Fri, 10 Nov 2023 14:07:13 +0100

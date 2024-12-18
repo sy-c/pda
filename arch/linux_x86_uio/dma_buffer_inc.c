@@ -1,9 +1,11 @@
 /**
  * @author Dominic Eschweiler <dominic@eschweiler.at>
+ * @author Dirk Hutter <hutter@compeng.uni-frankfurt.de>
  *
  * @section LICENSE
  *
  * Copyright (c) 2015, Dominic Eschweiler
+ * Copyright (c) 2017, Dirk Hutter
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -216,7 +218,7 @@ DMABuffer_loadSGList
     { ERROR_EXIT( errno, exit, "Lookup failed!\n" ); }
 
     snprintf(buffer->internal->uio_filepath_sg, PDA_STRING_LIMIT,
-             "%s/%04x:%02x:%02x.%1x/dma/%s/sg",
+             "%s/"UIO_PATH_FORMAT"/dma/%s/sg",
              UIO_BAR_PATH, domain_id, bus_id, device_id, function_id,
              buffer->internal->name);
 
@@ -369,20 +371,20 @@ DMABuffer_generatePaths
 
 
     snprintf(buffer->internal->uio_filepath_request, PDA_STRING_LIMIT,
-             "%s/%04x:%02x:%02x.%1x/dma/request",
+             "%s/"UIO_PATH_FORMAT"/dma/request",
              UIO_BAR_PATH, domain_id, bus_id, device_id, function_id);
 
     snprintf(buffer->internal->uio_filepath_delete, PDA_STRING_LIMIT,
-             "%s/%04x:%02x:%02x.%1x/dma/free",
+             "%s/"UIO_PATH_FORMAT"/dma/free",
              UIO_BAR_PATH, domain_id, bus_id, device_id, function_id);
 
     snprintf(buffer->internal->uio_filepath_map, PDA_STRING_LIMIT,
-             "%s/%04x:%02x:%02x.%1x/dma/%s/map",
+             "%s/"UIO_PATH_FORMAT"/dma/%s/map",
              UIO_BAR_PATH, domain_id, bus_id, device_id, function_id,
              buffer->internal->name);
 
     snprintf(buffer->internal->uio_filepath_folder, PDA_STRING_LIMIT,
-             "%s/%04x:%02x:%02x.%1x/dma/%s/",
+             "%s/"UIO_PATH_FORMAT"/dma/%s/",
              UIO_BAR_PATH, domain_id, bus_id, device_id, function_id,
              buffer->internal->name);
 
@@ -442,21 +444,6 @@ DMABuffer_lockUserBuffer
 {
     DEBUG_PRINTF(PDADEBUG_ENTER, "");
 
-    volatile uint64_t  tmp          = 0;
-    volatile uint64_t *page_pointer = 0;
-    for
-    (
-        page_pointer = (uint64_t*) start;
-        page_pointer < (uint64_t*) (start + buffer->length);
-        page_pointer = (page_pointer + PAGE_SIZE)
-    )
-    {
-        tmp = *page_pointer;
-        *page_pointer = tmp;
-    }
-
-    mlock(start, buffer->length);
-
     if(mlock(start, buffer->length) != 0)
     { RETURN(ERROR( errno, "Buffer locking failed!\n")); }
 
@@ -497,7 +484,7 @@ DMABuffer_requestMemory
         #endif /* NUMA_AVAIL */
     };
 
-    snprintf(request.name, 1024, "%s", buffer->internal->name);
+    snprintf(request.name, UIO_PCI_DMA_BUFFER_NAME_SIZE, "%s", buffer->internal->name);
 
     buffer->internal->alloc_fd =
         pda_spinOpen
@@ -589,10 +576,14 @@ DMABuffer_new
             if( ((long unsigned int)start)%PAGE_SIZE != 0 )
             { ERROR_EXIT( EINVAL, exit, "Input buffer is not page aligned!\n" ); }
 
-            ret += DMABuffer_generatePaths(buffer, device);
-            ret += DMABuffer_lockUserBuffer(start, buffer);
-            ret += DMABuffer_requestMemory(device, buffer, start);
-            ret += DMABuffer_mapUser(buffer, start);
+            if(DMABuffer_generatePaths(buffer, device) != PDA_SUCCESS)
+            { ERROR_EXIT( errno, exit, "Buffer registration generate paths failed!\n" ); }
+            if(DMABuffer_lockUserBuffer(start, buffer) != PDA_SUCCESS)
+            { ERROR_EXIT( errno, exit, "Buffer registration lock buffer failed!\n" ); }
+            if(DMABuffer_requestMemory(device, buffer, start) != PDA_SUCCESS)
+            { ERROR_EXIT( errno, exit, "Buffer registration request memory failed!\n" ); }
+            if(DMABuffer_mapUser(buffer, start) != PDA_SUCCESS)
+            { ERROR_EXIT( errno, exit, "Buffer registration map failed!\n" ); }
         }
         break;
 
@@ -641,12 +632,12 @@ DMABuffer_delete_not_attached_buffers(PciDevice *device)
 
     char uio_file_path[PDA_STRING_LIMIT];
     memset(uio_file_path, 0, PDA_STRING_LIMIT);
-    snprintf(uio_file_path, PDA_STRING_LIMIT, "%s/%04x:%02x:%02x.%1x/dma/",
+    snprintf(uio_file_path, PDA_STRING_LIMIT, "%s/"UIO_PATH_FORMAT"/dma/",
             UIO_BAR_PATH, domain_id, bus_id, device_id, function_id);
 
     char uio_delete_path[PDA_STRING_LIMIT];
     memset(uio_delete_path, 0, PDA_STRING_LIMIT);
-    snprintf(uio_delete_path, PDA_STRING_LIMIT, "%s/%04x:%02x:%02x.%1x/dma/free",
+    snprintf(uio_delete_path, PDA_STRING_LIMIT, "%s/"UIO_PATH_FORMAT"/dma/free",
             UIO_BAR_PATH, domain_id, bus_id, device_id, function_id);
 
     /** Iterate over all directories inside the dma directory */
@@ -718,7 +709,7 @@ DMABuffer_check_persistant(PciDevice *device)
 
     char uio_file_path[PDA_STRING_LIMIT];
     memset(uio_file_path, 0, PDA_STRING_LIMIT);
-    snprintf(uio_file_path, PDA_STRING_LIMIT, "%s/%04x:%02x:%02x.%1x/dma/",
+    snprintf(uio_file_path, PDA_STRING_LIMIT, "%s/"UIO_PATH_FORMAT"/dma/",
             UIO_BAR_PATH, domain_id, bus_id, device_id, function_id);
 
     /** Return pointer */
@@ -1087,9 +1078,12 @@ DMABuffer_wrapMap(DMABuffer *buffer)
     { ERROR_EXIT( errno, exit, "Base allocation failed\n" ); }
     else
     {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wuse-after-free"
         uint8_t *buffer_area_tmp = buffer_area;
         free(buffer_area);
         buffer_area = buffer_area_tmp;
+#pragma GCC diagnostic pop
     }
 
     if(buffer->type == PDA_BUFFER_KERNEL)
