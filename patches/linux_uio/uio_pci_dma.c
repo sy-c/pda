@@ -35,11 +35,6 @@
  *
  */
 
-
-
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wall"
-
 #include <linux/device.h>
 #include <linux/kobject.h>
 #include <linux/module.h>
@@ -54,13 +49,10 @@
 #include <linux/vmalloc.h>
 
 
-#pragma GCC diagnostic pop
-#pragma GCC diagnostic ignored "-Wdeclaration-after-statement"
-
 //#define UIO_PDA_DEBUG
 //#define UIO_PDA_DEBUG_SG
 #define UIO_PDA_IOMMU
-#define UIO_PDA_USE_PAGEFAULT_HANDLER
+//#define UIO_PDA_USE_PAGEFAULT_HANDLER
 
 
 #include "uio_pci_dma.h"
@@ -192,10 +184,10 @@ irqhandler
 }
 
 #define DMA_MASK( tag )                                                    \
-if( (err = pci_set ## tag ## dma_mask(pci_device, DMA_BIT_MASK(64))) )     \
+if( (err = dma_set ## tag ## mask(&pci_device->dev, DMA_BIT_MASK(64))) )     \
 {                                                                          \
     printk(DRIVER_NAME " : Warning: couldn't set 64-bit PCI DMA mask.\n"); \
-    if( (err = pci_set_dma_mask(pci_device, DMA_BIT_MASK(32))) )           \
+    if( (err = dma_set_mask(&pci_device->dev, DMA_BIT_MASK(32))) )           \
     { UIO_PDA_ERROR("Can't set PCI DMA mask, aborting!\n", exit); }        \
 }
 
@@ -266,12 +258,12 @@ probe
     spin_lock_init(&alloc_free_lock);
 
     /* attr_bin_request */
-    BIN_ATTR_PDA(request, sizeof(struct uio_pci_dma_private), S_IWUGO, NULL,
-        uio_pci_dma_sysfs_request_buffer_write, NULL);
+    BIN_ATTR_PDA(request, sizeof(struct uio_pci_dma_private), S_IWUSR | S_IWGRP,
+                 NULL, uio_pci_dma_sysfs_request_buffer_write, NULL);
 
     /* attr_bin_free */
-    BIN_ATTR_PDA(free, 0, S_IWUGO, NULL,
-        uio_pci_dma_sysfs_delete_buffer_write, NULL);
+    BIN_ATTR_PDA(free, 0, S_IWUSR | S_IWGRP, NULL,
+                 uio_pci_dma_sysfs_delete_buffer_write, NULL);
 
     /* attr_bin_max_payload_size */
     BIN_ATTR_PDA(max_payload_size, sizeof(int), S_IRUGO,
@@ -320,7 +312,7 @@ probe
     UIO_DEBUG_PRINTF("Set DMA-Master\n");
     pci_set_master(pci_device);
     DMA_MASK( _ );
-    DMA_MASK( _consistent_ );
+    DMA_MASK( _coherent_ );
 
     UIO_DEBUG_PRINTF("Generate a new sysfs folder\n");
     kset                 = kset_create_and_add("dma", NULL, &pci_device->dev.kobj);
@@ -358,7 +350,8 @@ probe
     for(i = 0; i<PCI_NUM_RESOURCES; i++)
     {
         dma_device->attr_bar[i].attr.name = NULL;
-        dma_device->attr_bar[i].attr.mode = S_IRUGO|S_IWUGO;
+        dma_device->attr_bar[i].attr.mode =
+            S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
         dma_device->attr_bar[i].size      = 0;
         dma_device->attr_bar[i].read      = NULL;
         dma_device->attr_bar[i].write     = NULL;
@@ -481,8 +474,10 @@ remove(struct pci_dev *pci_device)
 
 
 static const struct pci_device_id id_table[] = {
-    {PCI_DEVICE(0x10dc, 0x01a0) }, /* C-RORC PCI ID as registered at CERN */
+    {PCI_DEVICE(0x10dc, 0x0033) }, /* CERN C-RORC PCI ID */
+    {PCI_DEVICE(0x10dc, 0x0034) }, /* CERN CRU PCI ID */
     {PCI_DEVICE(0x10dc, 0xbeaf) }, /* FLIB intermediate PCI ID */
+    {PCI_DEVICE(0x10ee, 0xf1e5) }, /* CRI FLIM */
     { 0, }
 };
 
@@ -722,7 +717,11 @@ uio_pci_dma_allocate_user_memory
     #endif
 
     UIO_DEBUG_PRINTF("Get user pages\n");
-#if defined(PDA_FIVEARG_GUP)
+#if defined(PDA_FOURARG_GUP)
+    int pages_mapped
+        = get_user_pages
+            (priv->start, pages, FOLL_WRITE, priv->page_list);
+#elif defined(PDA_FIVEARG_GUP)
     int pages_mapped
         = get_user_pages
             (priv->start, pages, FOLL_WRITE, priv->page_list, NULL);
@@ -827,13 +826,25 @@ uio_pci_dma_allocate_kernel_memory
     sg_init_table( (priv->sg), priv->pages);
 
     /* Get the order for chunks which can be allocated in a consecutive buffer.
-     * We allocate chunks with the size of MAX_ORDER, which is the maximum that
+     * We allocate chunks with the size of MAX_PAGE_ORDER, which is the maximum that
      * we can get in a consecutive buffer. */
     uint8_t order = 0;
+#if defined(PDA_MAX_PAGE_ORDER_RENAMED)
+    if( (order = get_order(priv->size)) > (MAX_PAGE_ORDER) )
+    { order = (MAX_PAGE_ORDER); }
+    UIO_DEBUG_PRINTF("Page order = %u (MAX_PAGE_ORDER = %u) Pages to allocate = %llu\n",
+                     order, MAX_PAGE_ORDER, priv->pages);
+#elif defined(PDA_MAX_PAGE_ORDER_INCLUSIVE)
+    if( (order = get_order(priv->size)) > (MAX_ORDER) )
+    { order = (MAX_ORDER); }
+    UIO_DEBUG_PRINTF("Page order = %u (MAX_ORDER = %u) Pages to allocate = %llu\n",
+                     order, MAX_ORDER, priv->pages);
+#else
     if( (order = get_order(priv->size)) > (MAX_ORDER-1) )
     { order = (MAX_ORDER - 1); }
     UIO_DEBUG_PRINTF("Page order = %u (MAX_ORDER = %u) Pages to allocate = %llu\n",
                      order, MAX_ORDER, priv->pages);
+#endif
 
     uint64_t pages_left   = priv->pages;
     priv->length = 0;
@@ -962,12 +973,12 @@ BIN_ATTR_WRITE_CALLBACK( delete_buffer_write )
     spin_lock(&alloc_free_lock);
 
     struct bin_attribute attrib;
-    char                 tmp_string[count+1];
+    char                 tmp_string[UIO_PCI_DMA_BUFFER_NAME_SIZE];
     struct kset         *kset_pointer = to_kset(kobj);
     struct kobject      *buffer_kobj  = NULL;
     attrib.attr.name                  = "map";
 
-    snprintf(tmp_string, count, "%s", buffer);
+    snprintf(tmp_string, UIO_PCI_DMA_BUFFER_NAME_SIZE, "%s", buffer);
     KSET_FIND( kset_pointer, tmp_string, buffer_kobj );
     if(buffer_kobj != NULL)
     {
@@ -1000,8 +1011,8 @@ uio_pci_dma_free(struct kobject *kobj)
     if( !(priv=container_of(kobj, struct uio_pci_dma_private, kobj)) )
     { UIO_PDA_ERROR("Getting container failed!\n", exit); }
 
-    char kobj_name[1024];
-    strncpy(kobj_name, kobject_name(kobj), 1024);
+    char kobj_name[UIO_PCI_DMA_BUFFER_NAME_SIZE];
+    snprintf(kobj_name, UIO_PCI_DMA_BUFFER_NAME_SIZE, "%s", kobject_name(kobj));
     printk(DRIVER_NAME " : Freeing buffer %s\n", kobj_name);
 
 #ifdef UIO_PDA_IOMMU
@@ -1068,45 +1079,25 @@ uio_pci_dma_free_kernel_memory(struct uio_pci_dma_private *priv)
 
 
 #ifdef UIO_PDA_USE_PAGEFAULT_HANDLER
-#ifdef PDA_VMF_T
-static vm_fault_t
-#else
 static int
-#endif
 page_fault_handler
 (
-#ifndef PDA_VMF_T
     struct vm_area_struct *vma,
-#endif
     struct vm_fault       *vmf
 )
 {
     UIO_DEBUG_ENTER();
 
-#ifdef PDA_VMF_T
-    struct vm_area_struct *vma = vmf->vma;
-#endif
     struct uio_pci_dma_private *priv = vma->vm_private_data;
 
 #ifdef PDA_PFN_T_PAGES
-#ifdef PDA_VMF_T
-    return vmf_insert_mixed(vma, (unsigned long)vmf->address,
+    int ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
                               pfn_to_pfn_t(priv->pfn_list[vmf->pgoff % priv->pages]));
 #else
     int ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
-                              pfn_to_pfn_t(priv->pfn_list[vmf->pgoff % priv->pages]));
-#endif
-#else
-#ifdef PDA_VMF_T
-    return vmf_insert_mixed(vma, (unsigned long)vmf->address,
                               priv->pfn_list[vmf->pgoff % priv->pages]);
-#else
-    int ret = vm_insert_mixed(vma, (unsigned long)vmf->virtual_address,
-                              priv->pfn_list[vmf->pgoff % priv->pages]);
-#endif
 #endif
 
-#ifndef PDA_VMF_T
     switch(ret)
     {
         case 0:
@@ -1115,7 +1106,6 @@ page_fault_handler
         case -ENOMEM      : { UIO_DEBUG_RETURN(VM_FAULT_OOM);    }
         default           : { UIO_DEBUG_RETURN(VM_FAULT_SIGBUS); }
     }
-#endif
 
 }
 

@@ -48,11 +48,13 @@
 #define LINUX_VERSION_CODE KERNEL_VERSION(2,6,35)
 */
 
-#define UIO_PCI_DMA_VERSION "0.7.0"
+#define UIO_PCI_DMA_VERSION "0.11.0"
 #define UIO_PCI_DMA_MINOR   "0"
 
 #define UIO_PCI_DMA_SUCCESS 0
 #define UIO_PCI_DMA_ERROR   -1
+
+#define UIO_PCI_DMA_BUFFER_NAME_SIZE 128
 
 #define MB_SIZE 1048576
 
@@ -269,7 +271,7 @@ struct scatter
 
     #define BIN_ATTR_PDA(_name, _size, _mode, _read, _write, _mmap)                    \
     struct bin_attribute *attr_bin_ ## _name =                                         \
-        (struct bin_attribute*)kmalloc(sizeof(struct bin_attribute), GFP_KERNEL);      \
+        (struct bin_attribute*)kzalloc(sizeof(struct bin_attribute), GFP_KERNEL);      \
     attr_bin_ ## _name->attr.name = __stringify(_name);                                \
     attr_bin_ ## _name->attr.mode = _mode;                                             \
     attr_bin_ ## _name->size      = _size;                                             \
@@ -281,10 +283,12 @@ struct scatter
 /** Attribute callback definitions */
 BIN_ATTR_READ_CALLBACK( mps );
 BIN_ATTR_READ_CALLBACK( readrq );
+BIN_ATTR_READ_CALLBACK( mock );
 
 BIN_ATTR_WRITE_CALLBACK( request_buffer_write );
 BIN_ATTR_WRITE_CALLBACK( delete_buffer_write );
 
+BIN_ATTR_MAP_CALLBACK( bar_mmap );
 BIN_ATTR_MAP_CALLBACK( map );
 BIN_ATTR_MAP_CALLBACK( map_sg );
 
@@ -320,21 +324,29 @@ BIN_ATTR_MAP_CALLBACK( map_sg );
  * Kernel 4.9 replaced six-argument get_user_pages() with five-argument version,
  * replacing write/force parameters with gup_flags:
  * https://github.com/torvalds/linux/commit/768ae309a96103ed02eb1e111e838c87854d8b51
+ *
+ * Kernel 6.5 removes unused vmas parameter from get_user_pages()
+ * https://github.com/torvalds/linux/commit/54d020692b342f7bd02d7f5795fb5c401caecfcc
  **/
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0)
+#define PDA_FOURARG_GUP
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0)
 #define PDA_FIVEARG_GUP
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(4, 6, 0)
 #define PDA_SIXARG_GUP
 #endif
 
 /**
- * Kernel 4.17 joins struct fault_env and vm_fault:
- * https://github.com/torvalds/linux/commit/82b0f8c39a3869b6fd2a10e180a862248736ec6f
- * It also introduces vmf_insert_page() of vm_fault_t return type, replacing vm_insert_page()
- * https://github.com/torvalds/linux/commit/1c8f422059ae5da07db7406ab916203f9417e396
+ * Kernel 6.4 changes the definition of MAX_ORDER to be inclusive
+ * https://github.com/torvalds/linux/commit/23baf831a32c04f9a968812511540b1b3e648bf5
+ *
+ * Kernel 6.8 renames MAX_ORDER to MAX_PAGE_ORDER
+ * https://github.com/torvalds/linux/commit/5e0a760b44417f7cadd79de2204d6247109558a0
  **/
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0)
-#define PDA_VMF_T
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 8, 0)
+#define PDA_MAX_PAGE_ORDER_RENAMED
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+#define PDA_MAX_PAGE_ORDER_INCLUSIVE
 #endif
 
 #endif /** __KERNEL__ */
