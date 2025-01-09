@@ -10,7 +10,7 @@ GIT_TAG=11.8.7
 
 # This is the base name and version for this dkms package
 PKG_NAME=pda-kadapter-dkms
-PKG_VERSION=2.1.3
+PKG_VERSION=2.1.4
 
 # local build directory
 TMPDIR=/tmp/rpm
@@ -101,7 +101,7 @@ URL: https://github.com/cbm-fles/pda/
 Packager: Sylvain Chapeland <sylvain.chapeland@cern.ch>
 Group: System Environment/Kernel
 BuildArch: noarch
-Requires: dkms >= 1.00, kernel-devel, kernel-headers
+Requires: dkms >= 1.00, kernel-devel, kernel-headers, kernel-modules
 Requires: bash
 Source0: %{module}-%{version}.src.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root/
