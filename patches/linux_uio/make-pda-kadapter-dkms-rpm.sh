@@ -5,8 +5,11 @@
 # sylvain.chapeland@cern.ch
 
 
-# This is pda GIT tag from https://github.com/cbm-fles/pda
-GIT_TAG=11.8.7
+# This is pda GIT tag from upstream repository
+GIT_REPO=https://github.com/cbm-fles/pda
+GIT_TAG=11.9.7
+# This is the branch name to take from, if not using the tag. Leave blank to use tag.
+GIT_BRANCH=bug_sched_atomic
 
 # This is the base name and version for this dkms package
 PKG_NAME=pda-kadapter-dkms
@@ -47,11 +50,14 @@ mkdir -p ${TMPDIR}/SOURCES ${TMPDIR}/SPECS ${TMPDIR}/BUILD ${TMPDIR}/RPMS ${TMPD
 # get source code from upstream
 echo "Generating source tarball ${TMPDIR}/SOURCES/${PKG_DIR}.src.tar.gz"
 cd ${WDIR}
-git clone https://github.com/cbm-fles/pda.git -c advice.detachedHead=false
+git clone ${GIT_REPO} -c advice.detachedHead=false
 cd pda
 git fetch
-#git checkout -b fix_sysfs_attr origin/fix_sysfs_attr
-git checkout tags/${GIT_TAG}
+if [ "$GIT_BRANCH" != "" ]; then
+  git checkout -b ${GIT_BRANCH} origin/${GIT_BRANCH}
+else
+  git checkout tags/${GIT_TAG}
+fi
 cd patches/linux_uio
 
 # update source code with local files, if present
@@ -90,6 +96,7 @@ rm -f ${TMPDIR}/SPECS/${SPECFILE}
 
 echo "%define version ${VERSION}" >> ${TMPDIR}/SPECS/${SPECFILE}
 echo "%define module ${PKG_NAME}" >> ${TMPDIR}/SPECS/${SPECFILE}
+echo "URL: ${GIT_REPO}" >> ${TMPDIR}/SPECS/${SPECFILE}
 
 echo '
 Summary: PDA kernel adapter DKMS package
@@ -97,7 +104,6 @@ Name: %{module}
 Version: %{version}
 Release: 0
 License: BSD
-URL: https://github.com/cbm-fles/pda/
 Packager: Sylvain Chapeland <sylvain.chapeland@cern.ch>
 Group: System Environment/Kernel
 BuildArch: noarch
@@ -107,8 +113,16 @@ Source0: %{module}-%{version}.src.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root/
 
 %description
-This package contains the PDA kernel adapter wrapped for the DKMS framework.
+This package contains the PDA kernel adapter wrapped for the DKMS framework.'\
+ >> ${TMPDIR}/SPECS/${SPECFILE}
 
+if [ "$GIT_BRANCH" != "" ]; then
+  echo "Built from repository ${GIT_REPO} branch ${GIT_BRANCH}" >> ${TMPDIR}/SPECS/${SPECFILE}
+else
+  echo "Built from repository ${GIT_REPO} tag ${GIT_TAG}" >> ${TMPDIR}/SPECS/${SPECFILE}
+fi
+
+echo '
 %prep
 %setup
 
