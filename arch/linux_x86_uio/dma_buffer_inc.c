@@ -866,7 +866,7 @@ DMABuffer_free
             {
 	    // report, but continue with release procedure even if unlock fails
 	    //ERROR_EXIT( errno, exit, "Buffer unlocking failed!\n" ); 
-	    ERROR( errno, "Buffer unlocking failed!\n" );}
+	    ERROR( errno, "Buffer unlocking failed!\n" );
 	    }
 
             buffer->map = MAP_FAILED;
