@@ -9,11 +9,11 @@
 GIT_REPO=https://github.com/cbm-fles/pda
 GIT_TAG=11.9.7
 # This is the branch name to take from, if not using the tag. Leave blank to use tag.
-GIT_BRANCH=bug_sched_atomic
+GIT_BRANCH=master
 
 # This is the base name and version for this dkms package
 PKG_NAME=pda-kadapter-dkms
-PKG_VERSION=2.1.4
+PKG_VERSION=2.1.5
 
 # local build directory
 TMPDIR=/tmp/rpm
@@ -24,6 +24,33 @@ CURDIR=`pwd`
 # use local versions of kernel module source files, if found
 # (eg to test a local version not available in upstream repo)
 USE_LOCAL_SOURCES=0
+
+PKG_DESCRIPTION=""
+PKG_RELEASE=0
+
+
+while getopts 'lr:n:h' opt; do
+  case "$opt" in
+    l)
+      USE_LOCAL_SOURCES=1
+      PKG_DESCRIPTION="${PKG_DESCRIPTION}Using locally patched sources. "
+      ;;
+    r)
+      PKG_RELEASE="$OPTARG"
+      ;;
+    n)
+      PKG_DESCRIPTION="${PKG_DESCRIPTION}${OPTARG} "
+      ;;
+    ?|h)
+      echo "Usage: $(basename $0) [-r release_number] [-n release_notes] [-l]"
+      echo "  -r : sets the RPM release numner."
+      echo "  -n : sets the RPM release notes (in the RPM description field)."
+      echo "  -l : uses locally patches sources instead of upstream branch/tag."
+      exit 1
+      ;;
+  esac
+done
+shift "$(($OPTIND -1))"
 
 # Prerequisites:
 # yum install -y git rpm-build
@@ -55,8 +82,10 @@ cd pda
 git fetch
 if [ "$GIT_BRANCH" != "" ]; then
   git checkout -b ${GIT_BRANCH} origin/${GIT_BRANCH}
+  PKG_DESCRIPTION = "${PKG_DESCRIPTION} Using ${GIT_REPO} branch ${GIT_BRANCH}."
 else
   git checkout tags/${GIT_TAG}
+  PKG_DESCRIPTION = "${PKG_DESCRIPTION} Using ${GIT_REPO} tag ${GIT_TAG}."
 fi
 cd patches/linux_uio
 
@@ -97,12 +126,12 @@ rm -f ${TMPDIR}/SPECS/${SPECFILE}
 echo "%define version ${VERSION}" >> ${TMPDIR}/SPECS/${SPECFILE}
 echo "%define module ${PKG_NAME}" >> ${TMPDIR}/SPECS/${SPECFILE}
 echo "URL: ${GIT_REPO}" >> ${TMPDIR}/SPECS/${SPECFILE}
+echo "Release: ${PKG_RELEASE}" >> ${TMPDIR}/SPECS/${SPECFILE}
 
 echo '
 Summary: PDA kernel adapter DKMS package
 Name: %{module}
 Version: %{version}
-Release: 0
 License: BSD
 Packager: Sylvain Chapeland <sylvain.chapeland@cern.ch>
 Group: System Environment/Kernel
@@ -117,10 +146,13 @@ This package contains the PDA kernel adapter wrapped for the DKMS framework.'\
  >> ${TMPDIR}/SPECS/${SPECFILE}
 
 if [ "$GIT_BRANCH" != "" ]; then
-  echo "Built from repository ${GIT_REPO} branch ${GIT_BRANCH}" >> ${TMPDIR}/SPECS/${SPECFILE}
+  echo "Built from repository ${GIT_REPO} branch ${GIT_BRANCH}." >> ${TMPDIR}/SPECS/${SPECFILE}
 else
-  echo "Built from repository ${GIT_REPO} tag ${GIT_TAG}" >> ${TMPDIR}/SPECS/${SPECFILE}
+  echo "Built from repository ${GIT_REPO} tag ${GIT_TAG}." >> ${TMPDIR}/SPECS/${SPECFILE}
 fi
+
+echo "${PKG_DESCRIPTION}" >> ${TMPDIR}/SPECS/${SPECFILE}
+
 
 echo '
 %prep
