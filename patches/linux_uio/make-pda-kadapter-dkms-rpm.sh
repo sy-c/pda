@@ -7,9 +7,9 @@
 
 # This is pda GIT tag from upstream repository
 GIT_REPO=https://github.com/cbm-fles/pda
-GIT_TAG=11.9.7
+GIT_TAG=11.10.7
 # This is the branch name to take from, if not using the tag. Leave blank to use tag.
-GIT_BRANCH=master
+GIT_BRANCH=
 
 # This is the base name and version for this dkms package
 PKG_NAME=pda-kadapter-dkms
