@@ -128,7 +128,7 @@ struct scatter
 /** Kernel versions <= 2.6.34 don't get a file pointer passed to the
  *  sysfs-callbacks
  */
-    #if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 34)
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 34)
     #define BIN_ATTR_WRITE_CALLBACK( name )                                            \
     ssize_t                                                                            \
     uio_pci_dma_sysfs_ ## name                                                         \
@@ -159,24 +159,30 @@ struct scatter
         struct bin_attribute  *attr,                                                   \
         struct vm_area_struct *vma                                                     \
     )
-    #endif
+#endif /* LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 34) */
 
-
-    #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34)
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34)
 /**
  * Kernel versions >= 6.13 constifies 'struct bin_attribute' mmap callback
  * https://github.com/torvalds/linux/commit/94a20fb9af16417ab5fd17bcde3d906926f15ef6
+ * Kernel patch is backported to RHEL 10.1
+ * 
  * Kernel versions >= 6.16 constifies 'struct bin_attribute' read/write callbacks
  * https://github.com/torvalds/linux/commit/97d06802d10a2827ef46fd31789a26117ce7f3d9
  */
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0)
+#ifdef RHEL_RELEASE_CODE
+    #if RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(10, 1)
+        #define RHEL_RELEASE_10_1
+    #endif
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 13, 0) || defined(RHEL_RELEASE_10_1)
     #define BIN_ATTR_CONST_MMAP
-    #endif
-    #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 16, 0)
     #define BIN_ATTR_CONST_RDWR
-    #endif
+#endif
 
-    #if defined(BIN_ATTR_CONST_RDWR)
+#if defined(BIN_ATTR_CONST_RDWR)
     #define BIN_ATTR_WRITE_CALLBACK( name )                                            \
     ssize_t                                                                            \
     uio_pci_dma_sysfs_ ## name                                                         \
@@ -200,7 +206,7 @@ struct scatter
         loff_t                      offset,                                            \
         size_t                      count                                              \
     )
-    #else
+#else
     #define BIN_ATTR_WRITE_CALLBACK( name )                                            \
     ssize_t                                                                            \
     uio_pci_dma_sysfs_ ## name                                                         \
@@ -224,9 +230,9 @@ struct scatter
         loff_t                offset,                                                  \
         size_t                count                                                    \
     )
-    #endif
+#endif
 
-    #if defined(BIN_ATTR_CONST_MMAP)
+#if defined(BIN_ATTR_CONST_MMAP)
     #define BIN_ATTR_MAP_CALLBACK( name )                                              \
     int                                                                                \
     uio_pci_dma_sysfs_ ## name                                                         \
@@ -236,7 +242,7 @@ struct scatter
         const struct bin_attribute *attr,                                              \
         struct vm_area_struct      *vma                                                \
     )
-    #else
+#else
     #define BIN_ATTR_MAP_CALLBACK( name )                                              \
     int                                                                                \
     uio_pci_dma_sysfs_ ## name                                                         \
@@ -246,9 +252,9 @@ struct scatter
         struct bin_attribute  *attr,                                                   \
         struct vm_area_struct *vma                                                     \
     )
-    #endif
+#endif
 
-    #endif
+#endif /* LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 34) */
 
 /** Kernel versions <= 2.6.31 don't have certain defines for PCI config space
  *  adressing */
