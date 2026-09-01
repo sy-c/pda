@@ -13,7 +13,7 @@ GIT_BRANCH=
 
 # This is the base name and version for this dkms package
 PKG_NAME=pda-kadapter-dkms
-PKG_VERSION=2.1.5
+PKG_VERSION=2.1.6
 
 # local build directory
 TMPDIR=/tmp/rpm
@@ -23,7 +23,7 @@ CURDIR=`pwd`
 
 # use local versions of kernel module source files, if found
 # (eg to test a local version not available in upstream repo)
-USE_LOCAL_SOURCES=0
+USE_LOCAL_SOURCES=1
 
 PKG_DESCRIPTION=""
 PKG_RELEASE=0
